@@ -1,0 +1,480 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>気分記録</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  :root{
+    --bg:#eef3f8;
+    --card:#ffffff;
+    --text:#233140;
+    --sub:#7a8ea3;
+    --accent:#4a7fb5;
+    --up:#c9885f;
+    --down:#6f8faa;
+    --border:#dbe6f0;
+    --danger:#c25b4a;
+  }
+  html[data-theme="pink"]{
+    --bg:#faf0f3;
+    --card:#ffffff;
+    --text:#402730;
+    --sub:#b98a97;
+    --accent:#d16a8a;
+    --border:#f3dde3;
+  }
+  body{transition:background 0.2s;}
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    font-family:-apple-system,BlinkMacSystemFont,"Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    padding:16px;
+    padding-bottom:60px;
+  }
+  h1{font-size:20px;margin:4px 0 16px;}
+  .sr-only{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;}
+  .header-card{padding:10px;overflow:hidden;}
+  .header-card svg{width:100%;height:auto;display:block;}
+  .card{
+    background:var(--card);
+    border:1px solid var(--border);
+    border-radius:14px;
+    padding:16px;
+    margin-bottom:16px;
+  }
+  .card h2{
+    font-size:15px;
+    margin:0 0 12px;
+    color:var(--accent);
+  }
+  label{
+    display:block;
+    font-size:13px;
+    color:var(--sub);
+    margin-bottom:6px;
+  }
+  .field{margin-bottom:16px;}
+  input[type="date"], input[type="number"], textarea{
+    width:100%;
+    padding:10px;
+    border:1px solid var(--border);
+    border-radius:8px;
+    font-size:15px;
+    background:#fbfaf8;
+    color:var(--text);
+    font-family:inherit;
+  }
+  textarea{resize:vertical;min-height:50px;}
+  .mood-row{
+    display:flex;
+    align-items:center;
+    gap:10px;
+  }
+  input[type="range"]{
+    flex:1;
+    -webkit-appearance:none;
+    height:6px;
+    border-radius:3px;
+    background:linear-gradient(to right, var(--down), #ddd, var(--up));
+    outline:none;
+  }
+  input[type="range"]::-webkit-slider-thumb{
+    -webkit-appearance:none;
+    width:22px;height:22px;
+    border-radius:50%;
+    background:var(--accent);
+    border:3px solid white;
+    box-shadow:0 0 0 1px var(--border);
+  }
+  .mood-val{
+    font-size:18px;
+    font-weight:600;
+    width:36px;
+    text-align:center;
+  }
+  .mood-scale{
+    display:flex;
+    justify-content:space-between;
+    font-size:11px;
+    color:var(--sub);
+    margin-top:4px;
+  }
+  .toggle-row{
+    display:flex;
+    gap:10px;
+  }
+  .toggle-btn{
+    flex:1;
+    padding:10px;
+    border-radius:8px;
+    border:1px solid var(--border);
+    background:#fbfaf8;
+    text-align:center;
+    font-size:14px;
+    color:var(--sub);
+  }
+  .toggle-btn.active{
+    background:var(--accent);
+    color:white;
+    border-color:var(--accent);
+  }
+  button.primary{
+    width:100%;
+    padding:13px;
+    border:none;
+    border-radius:10px;
+    background:var(--accent);
+    color:white;
+    font-size:16px;
+    font-weight:600;
+  }
+  button.primary:active{opacity:0.85;}
+  .chart-wrap{position:relative;height:220px;}
+  .entry{
+    display:flex;
+    justify-content:space-between;
+    align-items:center;
+    padding:10px 0;
+    border-bottom:1px solid var(--border);
+    font-size:13px;
+  }
+  .entry:last-child{border-bottom:none;}
+  .entry-left{flex:1;}
+  .entry-date{font-weight:600;font-size:13px;}
+  .entry-note{color:var(--sub);font-size:12px;margin-top:2px;}
+  .entry-mood{
+    font-weight:700;
+    font-size:15px;
+    width:34px;
+    text-align:center;
+  }
+  .entry-del{
+    color:var(--danger);
+    background:none;
+    border:none;
+    font-size:12px;
+    padding:6px 8px;
+  }
+  .empty{color:var(--sub);font-size:13px;text-align:center;padding:20px 0;}
+  .actions{display:flex;gap:10px;}
+  .actions button{
+    flex:1;
+    padding:10px;
+    border-radius:8px;
+    border:1px solid var(--border);
+    background:#fbfaf8;
+    color:var(--accent);
+    font-size:13px;
+  }
+  input[type="file"]{display:none;}
+</style>
+</head>
+<body>
+
+<h1 class="sr-only">気分記録</h1>
+
+<div class="card header-card">
+  <svg viewBox="0 0 400 300" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="heartGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+        <stop offset="0%" stop-color="#a78bd8"/>
+        <stop offset="50%" stop-color="#7fa8d9"/>
+        <stop offset="100%" stop-color="#e6a8c9"/>
+      </linearGradient>
+      <linearGradient id="waveGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+        <stop offset="0%" stop-color="#9fb8e0" stop-opacity="0.55"/>
+        <stop offset="50%" stop-color="#c3a8e0" stop-opacity="0.55"/>
+        <stop offset="100%" stop-color="#e8b6cf" stop-opacity="0.55"/>
+      </linearGradient>
+    </defs>
+
+    <rect x="0" y="0" width="400" height="300" rx="20" fill="var(--card)"/>
+
+    <path d="M40,90 Q30,40 90,25" fill="none" stroke="#cda75a" stroke-width="1.5" stroke-dasharray="1 5" stroke-linecap="round"/>
+    <circle cx="90" cy="25" r="8" fill="none" stroke="#cda75a" stroke-width="2"/>
+
+    <path d="M175,45 l3,8 l8,3 l-8,3 l-3,8 l-3,-8 l-8,-3 l8,-3 z" fill="#8fb4e0"/>
+    <path d="M255,40 l2,6 l6,2 l-6,2 l-2,6 l-2,-6 l-6,-2 l6,-2 z" fill="#cda75a"/>
+    <path d="M330,130 l2,6 l6,2 l-6,2 l-2,6 l-2,-6 l-6,-2 l6,-2 z" fill="#e6a8c9"/>
+
+    <g transform="translate(300,45)">
+      <path d="M0,30 Q-5,10 5,-5" fill="none" stroke="#9db98f" stroke-width="1.5"/>
+      <circle cx="5" cy="-5" r="6" fill="#c9b6e8"/>
+      <circle cx="15" cy="0" r="5" fill="#e8c6dc"/>
+      <circle cx="20" cy="-12" r="5" fill="#a9c6e8"/>
+      <circle cx="0" cy="-15" r="4" fill="#e8dcf0"/>
+    </g>
+
+    <text x="200" y="120" text-anchor="middle" font-size="34" font-weight="700" fill="#2c3a5c" style="font-family:inherit;letter-spacing:4px;">気分記録</text>
+
+    <text x="200" y="148" text-anchor="middle" font-size="13" fill="#6b7488" style="font-family:inherit;">わたしの気分、ちゃんと記録。</text>
+    <text x="200" y="168" text-anchor="middle" font-size="13" fill="#6b7488" style="font-family:inherit;">やさしく知って、軽やかに生きる。</text>
+
+    <path d="M40,255 C100,235 140,270 200,250 C260,230 300,265 360,245 L360,270 C300,290 260,255 200,275 C140,295 100,260 40,280 Z" fill="url(#waveGrad)"/>
+
+    <g transform="translate(200,225) scale(3) translate(-12,-12)">
+      <path d="M12,21.35l-1.45-1.32C5.4,15.36,2,12.28,2,8.5 C2,5.42,4.42,3,7.5,3c1.74,0,3.41,0.81,4.5,2.09C13.09,3.81,14.76,3,16.5,3 C19.58,3,22,5.42,22,8.5c0,3.78-3.4,6.86-8.55,11.54L12,21.35z" fill="url(#heartGrad)"/>
+      <ellipse cx="8" cy="8.5" rx="2.4" ry="1.3" fill="#ffffff" opacity="0.55" transform="rotate(-25 8 8.5)"/>
+    </g>
+  </svg>
+</div>
+
+<div class="card" style="padding-top:12px;padding-bottom:12px;">
+  <label>テーマカラー</label>
+  <div class="toggle-row">
+    <div class="toggle-btn active" id="themeBlue" onclick="setTheme('blue')">青</div>
+    <div class="toggle-btn" id="themePink" onclick="setTheme('pink')">ピンク</div>
+  </div>
+</div>
+
+<div class="card">
+  <h2>今日の記録</h2>
+  <div class="field">
+    <label for="date">日付</label>
+    <input type="date" id="date">
+  </div>
+  <div class="field">
+    <label>気分(-5 うつ寄り 〜 +5 躁寄り)</label>
+    <div class="mood-row">
+      <input type="range" id="mood" min="-5" max="5" step="1" value="0">
+      <div class="mood-val" id="moodVal">0</div>
+    </div>
+    <div class="mood-scale"><span>重いうつ</span><span>普通</span><span>強い躁</span></div>
+  </div>
+  <div class="field">
+    <label for="sleep">睡眠時間(時間)</label>
+    <input type="number" id="sleep" min="0" max="24" step="0.5" placeholder="例: 7">
+  </div>
+  <div class="field">
+    <label>服薬</label>
+    <div class="toggle-row">
+      <div class="toggle-btn active" id="medYes" onclick="setMed(true)">服薬した</div>
+      <div class="toggle-btn" id="medNo" onclick="setMed(false)">していない</div>
+    </div>
+  </div>
+  <div class="field">
+    <label>頓服</label>
+    <div class="toggle-row">
+      <div class="toggle-btn" id="prnYes" onclick="setPrn(true)">飲んだ</div>
+      <div class="toggle-btn active" id="prnNo" onclick="setPrn(false)">飲んでいない</div>
+    </div>
+  </div>
+  <div class="field">
+    <label for="note">メモ(任意)</label>
+    <textarea id="note" placeholder="出来事、体調、気になったことなど"></textarea>
+  </div>
+  <button class="primary" onclick="saveEntry()">記録する</button>
+</div>
+
+<div class="card">
+  <h2>気分の推移</h2>
+  <div class="chart-wrap"><canvas id="moodChart"></canvas></div>
+</div>
+
+<div class="card">
+  <h2>睡眠時間の推移</h2>
+  <div class="chart-wrap"><canvas id="sleepChart"></canvas></div>
+</div>
+
+<div class="card">
+  <h2>記録一覧</h2>
+  <div id="entryList"><div class="empty">まだ記録がありません</div></div>
+</div>
+
+<div class="card">
+  <h2>データの管理</h2>
+  <div class="actions">
+    <button onclick="exportCSV()">CSVで書き出す</button>
+    <button onclick="document.getElementById('importFile').click()">読み込む</button>
+  </div>
+  <input type="file" id="importFile" accept=".json" onchange="importData(event)">
+</div>
+
+<script>
+const STORAGE_KEY = 'moodTrackerEntries';
+let medState = true;
+let prnState = false;
+let moodChart, sleepChart;
+
+function loadEntries(){
+  const raw = localStorage.getItem(STORAGE_KEY);
+  return raw ? JSON.parse(raw) : [];
+}
+function saveEntries(entries){
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(entries));
+}
+function setMed(val){
+  medState = val;
+  document.getElementById('medYes').classList.toggle('active', val);
+  document.getElementById('medNo').classList.toggle('active', !val);
+}
+function setPrn(val){
+  prnState = val;
+  document.getElementById('prnYes').classList.toggle('active', val);
+  document.getElementById('prnNo').classList.toggle('active', !val);
+}
+document.getElementById('mood').addEventListener('input', e=>{
+  document.getElementById('moodVal').textContent = e.target.value;
+});
+document.getElementById('date').valueAsDate = new Date();
+
+function saveEntry(){
+  const date = document.getElementById('date').value;
+  if(!date){ alert('日付を入力してください'); return; }
+  const mood = Number(document.getElementById('mood').value);
+  const sleepRaw = document.getElementById('sleep').value;
+  const sleep = sleepRaw === '' ? null : Number(sleepRaw);
+  const note = document.getElementById('note').value.trim();
+
+  let entries = loadEntries();
+  entries = entries.filter(e => e.date !== date);
+  entries.push({date, mood, sleep, medication: medState, prn: prnState, note});
+  entries.sort((a,b)=> a.date.localeCompare(b.date));
+  saveEntries(entries);
+
+  document.getElementById('note').value = '';
+  render();
+}
+
+function deleteEntry(date){
+  let entries = loadEntries().filter(e => e.date !== date);
+  saveEntries(entries);
+  render();
+}
+
+function renderList(entries){
+  const list = document.getElementById('entryList');
+  if(entries.length === 0){
+    list.innerHTML = '<div class="empty">まだ記録がありません</div>';
+    return;
+  }
+  const sorted = [...entries].sort((a,b)=> b.date.localeCompare(a.date));
+  list.innerHTML = sorted.map(e => `
+    <div class="entry">
+      <div class="entry-mood" style="color:${moodColor(e.mood)}">${e.mood > 0 ? '+' + e.mood : e.mood}</div>
+      <div class="entry-left">
+        <div class="entry-date">${e.date} ${e.medication ? '💊' : ''} ${e.prn ? '頓服' : ''} ${e.sleep !== null ? '・睡眠' + e.sleep + 'h' : ''}</div>
+        ${e.note ? `<div class="entry-note">${escapeHtml(e.note)}</div>` : ''}
+      </div>
+      <button class="entry-del" onclick="deleteEntry('${e.date}')">削除</button>
+    </div>
+  `).join('');
+}
+
+function moodColor(m){
+  if(m >= 3) return '#c9885f';
+  if(m <= -3) return '#6f8faa';
+  return '#7c6f64';
+}
+function escapeHtml(s){
+  return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+function renderCharts(entries){
+  const sorted = [...entries].sort((a,b)=> a.date.localeCompare(b.date));
+  const labels = sorted.map(e => e.date.slice(5));
+  const moods = sorted.map(e => e.mood);
+  const sleeps = sorted.map(e => e.sleep);
+
+  if(moodChart) moodChart.destroy();
+  if(sleepChart) sleepChart.destroy();
+
+  moodChart = new Chart(document.getElementById('moodChart'), {
+    type: 'line',
+    data: {
+      labels,
+      datasets: [{
+        label: '気分',
+        data: moods,
+        borderColor: '#7c6f64',
+        backgroundColor: 'rgba(124,111,100,0.1)',
+        tension: 0.3,
+        fill: true,
+        pointRadius: 3
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: { y: { min: -5, max: 5, ticks: { stepSize: 1 } } },
+      plugins: { legend: { display: false } }
+    }
+  });
+
+  sleepChart = new Chart(document.getElementById('sleepChart'), {
+    type: 'bar',
+    data: {
+      labels,
+      datasets: [{
+        label: '睡眠時間',
+        data: sleeps,
+        backgroundColor: '#a9c0a0'
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      scales: { y: { min: 0, suggestedMax: 10 } },
+      plugins: { legend: { display: false } }
+    }
+  });
+}
+
+function render(){
+  const entries = loadEntries();
+  renderList(entries);
+  renderCharts(entries);
+}
+
+function exportCSV(){
+  const entries = loadEntries();
+  if(entries.length === 0){ alert('記録がありません'); return; }
+  let csv = '日付,気分,睡眠時間,服薬,頓服,メモ\n';
+  entries.forEach(e => {
+    csv += `${e.date},${e.mood},${e.sleep ?? ''},${e.medication ? '服薬した' : 'していない'},${e.prn ? '飲んだ' : '飲んでいない'},"${(e.note||'').replace(/"/g,'""')}"\n`;
+  });
+  const blob = new Blob(['﻿' + csv], {type:'text/csv'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'mood_records.csv';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function importData(event){
+  const file = event.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = e => {
+    try{
+      const data = JSON.parse(e.target.result);
+      if(Array.isArray(data)){
+        saveEntries(data);
+        render();
+        alert('読み込みました');
+      }
+    }catch(err){
+      alert('読み込みに失敗しました');
+    }
+  };
+  reader.readAsText(file);
+  event.target.value = '';
+}
+
+function setTheme(theme){
+  document.documentElement.setAttribute('data-theme', theme);
+  localStorage.setItem('moodTrackerTheme', theme);
+  document.getElementById('themeBlue').classList.toggle('active', theme === 'blue');
+  document.getElementById('themePink').classList.toggle('active', theme === 'pink');
+}
+setTheme(localStorage.getItem('moodTrackerTheme') || 'blue');
+
+render();
+</script>
+</body>
+</html>
